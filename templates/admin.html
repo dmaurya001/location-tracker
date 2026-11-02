@@ -3,453 +3,1313 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Location Tracker - Admin Dashboard</title>
+  <title>LivePin Fleet – Live Dashboard</title>
+  
+  <!-- Leaflet CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Socket.io Client -->
+  <script src="/socket.io/socket.io.js"></script>
+
   <style>
+    :root {
+      --bg-dark: #0a0d14;
+      --bg-panel: #11151f;
+      --bg-sidebar: #0e121a;
+      --border-color: #1e2638;
+      --accent-orange: #ff6600;
+      --accent-teal: #00d2b4;
+      --accent-red: #ef4444;
+      --accent-gray: #64748b;
+      --text-white: #ffffff;
+      --text-muted: #8b9bb4;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
+
     body {
-      background: #0f172a;
-      color: #f8fafc;
-      display: flex;
+      background: var(--bg-dark);
+      color: var(--text-white);
       height: 100vh;
+      display: flex;
       overflow: hidden;
     }
-    #sidebar {
-      width: 380px;
-      background: #1e293b;
-      border-right: 1px solid #334155;
+
+    /* Left Sidebar */
+    aside.sidebar {
+      width: 220px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-color);
       display: flex;
       flex-direction: column;
+      justify-content: space-between;
+      padding: 20px 14px;
       z-index: 1000;
+      flex-shrink: 0;
     }
-    .header {
-      padding: 20px;
-      border-bottom: 1px solid #334155;
-      background: #0f172a;
-    }
-    .header h1 {
-      font-size: 1.15rem;
-      font-weight: 700;
-      color: #38bdf8;
-      letter-spacing: -0.02em;
-    }
-    .header p {
-      font-size: 0.75rem;
-      color: #94a3b8;
-      margin-top: 4px;
-    }
-    .create-box {
-      padding: 16px 20px;
-      border-bottom: 1px solid #334155;
-      background: #1e293b;
-    }
-    .input-row {
+
+    .brand-logo {
       display: flex;
-      gap: 8px;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-white);
+      margin-bottom: 24px;
+      padding-left: 8px;
     }
-    .input-row input {
-      flex: 1;
-      padding: 10px 12px;
-      background: #0f172a;
-      border: 1px solid #475569;
-      border-radius: 8px;
+
+    .brand-pin-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--accent-orange);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       color: #fff;
-      font-size: 0.85rem;
-      outline: none;
     }
-    .btn-primary {
+
+    .brand-pin-icon svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      list-style: none;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
       padding: 10px 14px;
-      background: #0284c7;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+
+    .nav-item:hover {
+      color: var(--text-white);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .nav-item.active {
+      background: var(--accent-orange);
+      color: #ffffff;
+      font-weight: 600;
+      box-shadow: 0 4px 14px rgba(255, 102, 0, 0.35);
+    }
+
+    .nav-item svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+
+    .nav-bottom {
+      border-top: 1px solid var(--border-color);
+      padding-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .badge-count {
+      background: #ef4444;
       color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 999px;
+      margin-left: auto;
+    }
+
+    /* Main Container */
+    main.main-viewport {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Top Navigation Bar */
+    header.topbar {
+      height: 64px;
+      background: var(--bg-dark);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      flex-shrink: 0;
+      z-index: 500;
+    }
+
+    .topbar-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #ffffff;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .btn-create-link {
+      background: var(--accent-orange);
+      color: #ffffff;
       border: none;
+      padding: 8px 16px;
       border-radius: 8px;
       font-size: 0.85rem;
       font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
       cursor: pointer;
-      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(255, 102, 0, 0.3);
+      transition: background 0.2s;
     }
-    .btn-primary:hover {
-      background: #0369a1;
+
+    .btn-create-link:hover {
+      background: #e05a00;
     }
-    .link-share-box {
-      margin-top: 12px;
-      background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      padding: 8px 12px;
-      display: none;
-    }
-    .link-text {
-      font-size: 0.75rem;
-      color: #38bdf8;
-      word-break: break-all;
-      margin-bottom: 6px;
-      font-family: monospace;
-    }
-    .btn-copy {
-      padding: 4px 8px;
-      background: #334155;
-      color: #cbd5e1;
-      border: none;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      cursor: pointer;
-    }
-    .sessions-list-container {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px;
-    }
-    .section-title {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #64748b;
-      margin-bottom: 12px;
-      font-weight: 700;
-    }
-    .session-item {
-      background: #0f172a;
-      border: 1px solid #334155;
+
+    .topbar-btn {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      width: 38px;
+      height: 38px;
       border-radius: 10px;
-      padding: 12px 14px;
-      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
       cursor: pointer;
-      transition: all 0.2s;
+      position: relative;
     }
-    .session-item:hover, .session-item.active {
-      border-color: #38bdf8;
-      background: #172554;
+
+    .topbar-btn .dot-alert {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 7px;
+      height: 7px;
+      background: #ef4444;
+      border-radius: 50%;
     }
-    .session-title-row {
+
+    .user-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #2a3346;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: #ffffff;
+      border: 2px solid var(--border-color);
+    }
+
+    /* Content Area (Map + Right Alerts) */
+    .dashboard-body {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Map Section */
+    .map-wrapper {
+      flex: 1;
+      position: relative;
+      height: 100%;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      background: #0b0e14;
+    }
+
+    /* Dark Mode Map Inversion Filter */
+    .leaflet-tile-pane {
+      filter: invert(100%) hue-rotate(185deg) brightness(85%) contrast(90%);
+    }
+
+    /* Floating Controls on Map */
+    .map-controls-top {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      display: flex;
+      gap: 10px;
+      z-index: 800;
+    }
+
+    .map-pill-btn {
+      background: rgba(17, 21, 31, 0.9);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .map-pill-btn.active {
+      border-color: var(--accent-orange);
+      color: var(--accent-orange);
+    }
+
+    .map-fullscreen-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 800;
+      background: rgba(17, 21, 31, 0.9);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(8px);
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    .map-zoom-controls {
+      position: absolute;
+      right: 20px;
+      bottom: 140px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 800;
+    }
+
+    .zoom-btn {
+      background: rgba(17, 21, 31, 0.9);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(8px);
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .zoom-btn:hover {
+      background: #1f2738;
+    }
+
+    /* Bottom KPI Cards on Map */
+    .kpi-cards-overlay {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      display: flex;
+      gap: 16px;
+      z-index: 800;
+    }
+
+    .kpi-card {
+      background: rgba(17, 21, 31, 0.92);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 16px 20px;
+      min-width: 190px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    }
+
+    .kpi-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .kpi-icon-badge {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .kpi-icon-orange {
+      background: rgba(255, 102, 0, 0.15);
+      color: var(--accent-orange);
+    }
+
+    .kpi-icon-teal {
+      background: rgba(0, 210, 180, 0.15);
+      color: var(--accent-teal);
+    }
+
+    .kpi-icon-slate {
+      background: rgba(148, 163, 184, 0.15);
+      color: #cbd5e1;
+    }
+
+    .kpi-number {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1;
+    }
+
+    .kpi-title {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-top: 4px;
+    }
+
+    .kpi-subtext {
+      font-size: 0.72rem;
+      font-weight: 500;
+    }
+
+    .text-green { color: #10b981; }
+    .text-teal { color: var(--accent-teal); }
+    .text-blue { color: #38bdf8; cursor: pointer; }
+
+    /* Right Sidebar - Live Alerts & Status */
+    aside.alerts-sidebar {
+      width: 340px;
+      background: var(--bg-sidebar);
+      border-left: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      z-index: 900;
+      overflow-y: auto;
+    }
+
+    .alerts-section {
+      padding: 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .section-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 4px;
+      margin-bottom: 14px;
     }
-    .session-name {
-      font-weight: 600;
-      font-size: 0.9rem;
-      color: #f1f5f9;
-    }
-    .session-id {
-      font-size: 0.75rem;
-      background: #334155;
-      color: #94a3b8;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-family: monospace;
-    }
-    .session-meta {
-      font-size: 0.75rem;
-      color: #64748b;
-    }
-    .telemetry-card {
-      background: #0f172a;
-      border-top: 1px solid #334155;
-      padding: 16px 20px;
-    }
-    .telemetry-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 10px;
-    }
-    .stat-cell {
-      background: #1e293b;
-      border-radius: 8px;
-      padding: 8px 10px;
-    }
-    .stat-label {
-      font-size: 0.7rem;
-      color: #94a3b8;
-      display: block;
-    }
-    .stat-val {
-      font-size: 0.9rem;
+
+    .section-header h2 {
+      font-size: 0.85rem;
       font-weight: 700;
-      color: #f8fafc;
-      font-family: monospace;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #ffffff;
     }
-    .btn-action-row {
-      display: flex;
-      gap: 8px;
-      margin-top: 12px;
-    }
-    .btn-secondary {
-      flex: 1;
-      padding: 8px;
-      background: #334155;
-      color: #f1f5f9;
-      border: none;
-      border-radius: 6px;
-      font-size: 0.8rem;
+
+    .section-header a {
+      font-size: 0.75rem;
+      color: var(--accent-orange);
+      text-decoration: none;
+      font-weight: 600;
       cursor: pointer;
     }
-    .btn-secondary:hover {
-      background: #475569;
+
+    .alerts-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
-    #map {
+
+    .alert-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .alert-card:hover {
+      border-color: #3b4760;
+      background: #151b27;
+    }
+
+    .alert-icon-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .icon-speed {
+      background: rgba(255, 102, 0, 0.15);
+      color: var(--accent-orange);
+    }
+
+    .icon-brake {
+      background: rgba(249, 115, 22, 0.15);
+      color: #f97316;
+    }
+
+    .icon-breach {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+    }
+
+    .icon-connect {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+    }
+
+    .alert-info {
       flex: 1;
-      height: 100%;
+      min-width: 0;
     }
-    .pulse-marker {
-      width: 16px;
-      height: 16px;
-      background: #0ea5e9;
+
+    .alert-type {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .alert-device {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .alert-time {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    .alert-arrow {
+      color: #475569;
+      font-size: 0.9rem;
+    }
+
+    /* Vehicle Status Donut Chart Section */
+    .status-section {
+      padding: 20px;
+    }
+
+    .donut-container {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-top: 14px;
+    }
+
+    .donut-svg-wrapper {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      flex-shrink: 0;
+    }
+
+    .donut-svg-wrapper svg {
+      transform: rotate(-90deg);
       border-radius: 50%;
-      border: 3px solid #ffffff;
-      box-shadow: 0 0 12px #0ea5e9;
     }
-    .leaflet-tile-pane {
-      filter: invert(100%) hue-rotate(180deg) brightness(90%) contrast(90%);
+
+    .donut-center-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+
+    .donut-center-number {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1;
+    }
+
+    .donut-center-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .legend-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+      font-size: 0.78rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .legend-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-muted);
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .dot-moving { background: var(--accent-orange); }
+    .dot-idle { background: var(--accent-teal); }
+    .dot-stopped { background: var(--accent-red); }
+    .dot-offline { background: var(--accent-gray); }
+
+    .legend-val {
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    /* Custom Leaflet Vehicle Marker */
+    .vehicle-marker-box {
+      position: relative;
+      width: 44px;
+      height: 52px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transform: translate(-50%, -100%);
+    }
+
+    .vehicle-tag {
+      background: rgba(17, 21, 31, 0.95);
+      border: 1px solid var(--border-color);
+      color: #ffffff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      margin-bottom: 2px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    }
+
+    .vehicle-pin {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--accent-orange);
+      border: 3px solid #ffffff;
+      box-shadow: 0 0 16px rgba(255, 102, 0, 0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      animation: pinPulse 2s infinite ease-in-out;
+    }
+
+    .vehicle-pin svg {
+      width: 18px;
+      height: 18px;
+      fill: #ffffff;
+    }
+
+    @keyframes pinPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); box-shadow: 0 0 24px rgba(255, 102, 0, 1); }
+    }
+
+    /* New Session Modal Dialog */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-box {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 18px;
+      padding: 24px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .modal-header h3 {
+      font-size: 1.1rem;
+      color: #ffffff;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    .link-result-box {
+      background: var(--bg-dark);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 14px;
+      display: none;
+    }
+
+    .link-result-text {
+      font-size: 0.75rem;
+      font-family: monospace;
+      color: var(--accent-orange);
+      word-break: break-all;
+      margin-bottom: 8px;
     }
   </style>
 </head>
 <body>
-  <div id="sidebar">
-    <div class="header">
-      <h1>HERMES GEO TRACKER</h1>
-      <p>Real-Time WebSocket Web-Link Engine</p>
+
+  <!-- Left Sidebar -->
+  <aside class="sidebar">
+    <div>
+      <div class="brand-logo">
+        <div class="brand-pin-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+        </div>
+        <span>LivePin</span>
+      </div>
+
+      <ul class="nav-list">
+        <li>
+          <a class="nav-item active">
+            <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+            Dashboard
+          </a>
+        </li>
+        <li>
+          <a class="nav-item" onclick="openTargetModal()">
+            <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+            Map
+          </a>
+        </li>
+        <li>
+          <a class="nav-item" onclick="openTargetModal()">
+            <svg viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.08 3.11H5.77L6.85 7zM19 17H5v-4.66l.12-.34h13.77l.11.34V17z"/></svg>
+            Vehicles
+          </a>
+        </li>
+        <li>
+          <a class="nav-item">
+            <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            Drivers
+          </a>
+        </li>
+        <li>
+          <a class="nav-item">
+            <svg viewBox="0 0 24 24"><path d="M14 6l-3.75 5 2.85 3.8-1.6 1.2L7.2 10.2 2 17h20L14 6z"/></svg>
+            Trips
+          </a>
+        </li>
+        <li>
+          <a class="nav-item">
+            <svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+            Alerts
+            <span class="badge-count">3</span>
+          </a>
+        </li>
+        <li>
+          <a class="nav-item">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+            Geofences
+          </a>
+        </li>
+        <li>
+          <a class="nav-item">
+            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+            Reports
+          </a>
+        </li>
+        <li>
+          <a class="nav-item">
+            <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+            Settings
+          </a>
+        </li>
+      </ul>
     </div>
 
-    <div class="create-box">
-      <div class="input-row">
-        <input type="text" id="targetLabel" placeholder="Target Label (e.g. Driver 1)" />
-        <button class="btn-primary" onclick="createSession()">New Link</button>
-      </div>
-      <div class="link-share-box" id="linkShareBox">
-        <div class="link-text" id="shareUrlText"></div>
-        <button class="btn-copy" onclick="copyShareLink()">Copy Target Link</button>
-      </div>
+    <div class="nav-bottom">
+      <a class="nav-item">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 16h-2v-2h2v2zm1.07-7.75l-.9.92C12.45 11.9 12 12.5 12 14h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/></svg>
+        Help
+      </a>
+      <a class="nav-item">
+        <svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+        Notification <span class="badge-count">3</span>
+      </a>
     </div>
+  </aside>
 
-    <div class="sessions-list-container">
-      <div class="section-title">Active Targets</div>
-      <div id="sessionsList">Loading targets...</div>
-    </div>
+  <!-- Main Viewport -->
+  <main class="main-viewport">
+    <header class="topbar">
+      <h1 class="topbar-title">LivePin Fleet – Live Dashboard</h1>
+      
+      <div class="topbar-actions">
+        <button class="btn-create-link" onclick="openTargetModal()">
+          <svg style="width:16px;height:16px;" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          + New Vehicle
+        </button>
 
-    <div class="telemetry-card" id="telemetryCard" style="display:none;">
-      <div class="section-title" id="telemetryTitle">Target Telemetry</div>
-      <div class="telemetry-grid">
-        <div class="stat-cell">
-          <span class="stat-label">Latitude</span>
-          <span class="stat-val" id="statLat">--</span>
+        <div class="topbar-btn">
+          <svg style="width:18px;height:18px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+          <div class="dot-alert"></div>
         </div>
-        <div class="stat-cell">
-          <span class="stat-label">Longitude</span>
-          <span class="stat-val" id="statLng">--</span>
+
+        <div class="user-avatar" title="dmaurya001">DM</div>
+      </div>
+    </header>
+
+    <div class="dashboard-body">
+      <!-- Center Map Section -->
+      <div class="map-wrapper">
+        <div id="map"></div>
+
+        <!-- Floating Map Buttons -->
+        <div class="map-controls-top">
+          <button class="map-pill-btn active">
+            <svg style="width:14px;height:14px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+            Live Map
+          </button>
+          <button class="map-pill-btn">
+            <svg style="width:14px;height:14px;" viewBox="0 0 24 24"><path fill="currentColor" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99z"/></svg>
+            Traffic ▾
+          </button>
         </div>
-        <div class="stat-cell">
-          <span class="stat-label">Speed</span>
-          <span class="stat-val" id="statSpeed">-- km/h</span>
+
+        <button class="map-fullscreen-btn" onclick="toggleFullscreen()" title="Fullscreen">
+          <svg style="width:18px;height:18px;" viewBox="0 0 24 24"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+        </button>
+
+        <div class="map-zoom-controls">
+          <button class="zoom-btn" onclick="map.zoomIn()">+</button>
+          <button class="zoom-btn" onclick="map.zoomOut()">−</button>
+          <button class="zoom-btn" onclick="fitLiveTarget()" title="Locate Target">
+            <svg style="width:16px;height:16px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+          </button>
         </div>
-        <div class="stat-cell">
-          <span class="stat-label">Accuracy</span>
-          <span class="stat-val" id="statAccuracy">--</span>
-        </div>
-        <div class="stat-cell">
-          <span class="stat-label">Battery</span>
-          <span class="stat-val" id="statBattery">--</span>
-        </div>
-        <div class="stat-cell">
-          <span class="stat-label">Total Points</span>
-          <span class="stat-val" id="statPoints">0</span>
+
+        <!-- KPI Cards at Bottom -->
+        <div class="kpi-cards-overlay">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon-badge kpi-icon-orange">
+                <svg style="width:16px;height:16px;" viewBox="0 0 24 24"><path fill="currentColor" d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+              </div>
+              <div class="kpi-number" id="kpiMovingCount">1</div>
+            </div>
+            <div class="kpi-title">Moving Vehicles</div>
+            <div class="kpi-subtext text-green">↑ 12% from yesterday</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon-badge kpi-icon-teal">
+                <svg style="width:16px;height:16px;" viewBox="0 0 24 24"><path fill="currentColor" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.08 3.11H5.77L6.85 7zM19 17H5v-4.66l.12-.34h13.77l.11.34V17z"/></svg>
+              </div>
+              <div class="kpi-number" id="kpiIdleCount">0</div>
+            </div>
+            <div class="kpi-title">Idle Vehicles</div>
+            <div class="kpi-subtext text-teal">↓ 5% from yesterday</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon-badge kpi-icon-slate">
+                <svg style="width:16px;height:16px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+              </div>
+              <div class="kpi-number" id="kpiTotalCount">1</div>
+            </div>
+            <div class="kpi-title">Total Vehicles</div>
+            <div class="kpi-subtext text-blue" onclick="openTargetModal()">View all vehicles →</div>
+          </div>
         </div>
       </div>
-      <div class="btn-action-row">
-        <button class="btn-secondary" onclick="fitTarget()">Center Map</button>
-        <button class="btn-secondary" style="background:#dc2626;" onclick="deleteActiveSession()">Delete</button>
+
+      <!-- Right Alerts & Status Sidebar -->
+      <aside class="alerts-sidebar">
+        <!-- Live Alerts -->
+        <div class="alerts-section">
+          <div class="section-header">
+            <h2>Live Alerts</h2>
+            <a onclick="loadAlerts()">Refresh</a>
+          </div>
+
+          <div class="alerts-list" id="alertsFeed">
+            <div class="alert-card">
+              <div class="alert-icon-box icon-connect">
+                <svg style="width:18px;height:18px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+              </div>
+              <div class="alert-info">
+                <div class="alert-type">GPS Engine Online</div>
+                <div class="alert-device">System Active</div>
+                <div class="alert-time">Just now</div>
+              </div>
+              <div class="alert-arrow">›</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vehicle Status Donut Chart -->
+        <div class="status-section">
+          <div class="section-header">
+            <h2>Vehicle Status</h2>
+          </div>
+
+          <div class="donut-container">
+            <div class="donut-svg-wrapper">
+              <svg width="120" height="120" viewBox="0 0 36 36">
+                <!-- Background ring -->
+                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#1c2434" stroke-width="3.8"/>
+                <!-- Moving (Orange) -->
+                <path id="donutMoving" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#ff6600" stroke-width="3.8" stroke-dasharray="60, 100"/>
+                <!-- Idle (Teal) -->
+                <path id="donutIdle" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#00d2b4" stroke-width="3.8" stroke-dasharray="20, 100" stroke-dashoffset="-60"/>
+                <!-- Stopped (Red) -->
+                <path id="donutStopped" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#ef4444" stroke-width="3.8" stroke-dasharray="10, 100" stroke-dashoffset="-80"/>
+              </svg>
+              <div class="donut-center-text">
+                <div class="donut-center-number" id="donutTotalCount">1</div>
+                <div class="donut-center-label">Total</div>
+              </div>
+            </div>
+
+            <div class="legend-list">
+              <div class="legend-item">
+                <div class="legend-left">
+                  <span class="legend-dot dot-moving"></span>
+                  Moving
+                </div>
+                <div class="legend-val" id="legendMoving">1 (60%)</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-left">
+                  <span class="legend-dot dot-idle"></span>
+                  Idle
+                </div>
+                <div class="legend-val" id="legendIdle">0 (20%)</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-left">
+                  <span class="legend-dot dot-stopped"></span>
+                  Stopped
+                </div>
+                <div class="legend-val" id="legendStopped">0 (10%)</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-left">
+                  <span class="legend-dot dot-offline"></span>
+                  Offline
+                </div>
+                <div class="legend-val" id="legendOffline">0 (10%)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Modal: New Vehicle / Tracking Link -->
+  <div class="modal-overlay" id="targetModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Manage Vehicles & Targets</h3>
+        <button class="modal-close" onclick="closeTargetModal()">✕</button>
+      </div>
+
+      <div class="form-group">
+        <label>New Vehicle / Target Name</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="newTargetName" class="form-input" placeholder="e.g. GJ 01 EF 8012 or Courier 1" />
+          <button class="btn-create-link" onclick="createNewSession()">Create</button>
+        </div>
+      </div>
+
+      <div class="link-result-box" id="modalLinkBox">
+        <label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:4px;">Shareable Target Link:</label>
+        <div class="link-result-text" id="modalLinkText"></div>
+        <button class="btn-create-link" style="width:100%;justify-content:center;" onclick="copyModalLink()">Copy Link</button>
+      </div>
+
+      <div style="margin-top:16px;">
+        <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:8px;">Active Sessions</label>
+        <div id="modalSessionsList" style="max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div>
       </div>
     </div>
   </div>
 
-  <div id="map"></div>
-
   <script>
-    const map = L.map('map').setView([20.5937, 78.9629], 5);
+    // Initialize Leaflet Map
+    const map = L.map('map', { zoomControl: false }).setView([28.6139, 77.2090], 12);
+
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 19
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
     let activeSessionId = null;
-    let targetMarker = null;
-    let accuracyCircle = null;
-    let routePolyline = null;
-    let ws = null;
-    let sessionPoints = [];
+    let markersMap = {};
+    let polyline = null;
+    let pathCoordinates = [];
+    let socket = null;
+    let lastPings = {};
 
-    const customIcon = L.divIcon({
-      className: 'pulse-icon-container',
-      html: '<div class="pulse-marker"></div>',
-      iconSize: [16, 16],
-      iconAnchor: [8, 8]
-    });
+    // Custom Glowing Orange Pin Icon (Matching LivePin Photo)
+    function createVehicleIcon(label, status) {
+      const statusText = status || 'Moving';
+      return L.divIcon({
+        className: 'custom-vehicle-marker',
+        html: `
+          <div class="vehicle-marker-box">
+            <div class="vehicle-tag">${statusText}</div>
+            <div class="vehicle-pin">
+              <svg viewBox="0 0 24 24"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+            </div>
+          </div>
+        `,
+        iconSize: [44, 52],
+        iconAnchor: [22, 52]
+      });
+    }
 
+    // Connect to Socket.io
+    function initSocket() {
+      if (typeof io !== 'undefined') {
+        socket = io();
+        socket.on('connect', () => {
+          console.log('Connected to realtime telemetry stream');
+          if (activeSessionId) {
+            socket.emit('join_session', activeSessionId);
+          }
+        });
+
+        socket.on('location_update', (data) => {
+          handleIncomingLocation(data);
+        });
+      }
+    }
+
+    // Handle Incoming Live Telemetry
+    function handleIncomingLocation(data) {
+      const lat = data.latitude;
+      const lng = data.longitude;
+      const speed = data.speed || 0;
+      const sid = data.sessionId;
+
+      lastPings[sid] = Date.now();
+
+      // Determine Status (Moving vs Idle vs Stopped)
+      let status = 'Moving';
+      if (speed < 1) status = 'Stopped';
+      else if (speed < 5) status = 'Idle';
+
+      // Update or create marker
+      if (!markersMap[sid]) {
+        markersMap[sid] = L.marker([lat, lng], {
+          icon: createVehicleIcon(sid, status)
+        }).addTo(map);
+      } else {
+        markersMap[sid].setLatLng([lat, lng]);
+        markersMap[sid].setIcon(createVehicleIcon(sid, status));
+      }
+
+      // Add to polyline trail
+      pathCoordinates.push([lat, lng]);
+      if (!polyline) {
+        polyline = L.polyline(pathCoordinates, {
+          color: '#ff6600',
+          weight: 4,
+          opacity: 0.95,
+          lineJoin: 'round'
+        }).addTo(map);
+      } else {
+        polyline.setLatLngs(pathCoordinates);
+      }
+
+      // Center map on latest point
+      map.panTo([lat, lng]);
+
+      // Add Realtime Alert if overspeed or new ping
+      addAlert(sid, speed, status);
+      updateDashboardCounts();
+    }
+
+    // Add Live Alert to Feed
+    function addAlert(sid, speed, status) {
+      const feed = document.getElementById('alertsFeed');
+      let alertTitle = 'Location Ping Received';
+      let iconClass = 'icon-connect';
+      let iconSvg = '<svg style="width:18px;height:18px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>';
+
+      if (speed > 45) {
+        alertTitle = 'Overspeed Detected';
+        iconClass = 'icon-speed';
+        iconSvg = '<svg style="width:18px;height:18px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 4C7.58 4 4 7.58 4 12c0 1.95.7 3.73 1.86 5.14l1.42-1.42C6.49 14.62 6 13.37 6 12c0-3.31 2.69-6 6-6s6 2.69 6 6c0 1.37-.49 2.62-1.28 3.72l1.42 1.42C20.3 15.73 21 13.95 21 12c0-4.42-3.58-8-8-8zm-1 9.41V8h2v5.41l3.3 3.3-1.42 1.41L11 13.41z"/></svg>';
+      } else if (status === 'Stopped') {
+        alertTitle = 'Vehicle Stopped';
+        iconClass = 'icon-brake';
+        iconSvg = '<svg style="width:18px;height:18px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14h-2v-2h2v2zm0-4h-2V7h2v5z"/></svg>';
+      }
+
+      const alertEl = document.createElement('div');
+      alertEl.className = 'alert-card';
+      alertEl.innerHTML = `
+        <div class="alert-icon-box ${iconClass}">
+          ${iconSvg}
+        </div>
+        <div class="alert-info">
+          <div class="alert-type">${alertTitle}</div>
+          <div class="alert-device">Target: ${sid} (${speed} km/h)</div>
+          <div class="alert-time">Just now</div>
+        </div>
+        <div class="alert-arrow">›</div>
+      `;
+      feed.insertBefore(alertEl, feed.firstChild);
+
+      // Keep max 6 alerts
+      while (feed.children.length > 6) {
+        feed.removeChild(feed.lastChild);
+      }
+    }
+
+    // Fetch and Load Sessions
     async function loadSessions() {
       try {
         const res = await fetch('/api/sessions');
-        const data = await res.json();
-        const listEl = document.getElementById('sessionsList');
-        if (data.length === 0) {
-          listEl.innerHTML = '<p style="color:#64748b;font-size:0.8rem;">No tracking sessions yet. Click "New Link" above.</p>';
-          return;
-        }
+        const sessions = await res.json();
+        const listEl = document.getElementById('modalSessionsList');
         listEl.innerHTML = '';
-        data.forEach(s => {
+
+        if (sessions.length > 0 && !activeSessionId) {
+          selectSession(sessions[0].sessionId, sessions[0].label);
+        }
+
+        sessions.forEach(s => {
           const div = document.createElement('div');
-          div.className = `session-item ${activeSessionId === s.session_id ? 'active' : ''}`;
-          div.onclick = () => selectSession(s.session_id, s.label);
+          div.style.cssText = 'padding:8px 10px;background:var(--bg-dark);border-radius:6px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:0.8rem;';
           div.innerHTML = `
-            <div class="session-title-row">
-              <span class="session-name">${s.label}</span>
-              <span class="session-id">${s.session_id}</span>
-            </div>
-            <div class="session-meta">Pings: ${s.point_count} | ${s.last_seen ? new Date(s.last_seen * 1000).toLocaleTimeString() : 'Never'}</div>
+            <span><strong>${s.label}</strong> (${s.sessionId})</span>
+            <span style="color:var(--accent-orange);font-weight:600;">View</span>
           `;
+          div.onclick = () => {
+            selectSession(s.sessionId, s.label);
+            closeTargetModal();
+          };
           listEl.appendChild(div);
         });
+
+        updateDashboardCounts(sessions);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // Select Active Session
+    async function selectSession(sid, label) {
+      activeSessionId = sid;
+      if (socket) {
+        socket.emit('join_session', sid);
+      }
+
+      // Fetch history points
+      try {
+        const res = await fetch(`/api/sessions/${sid}`);
+        const data = await res.json();
+        pathCoordinates = (data.points || []).map(p => [p.latitude, p.longitude]);
+
+        if (polyline) {
+          polyline.setLatLngs(pathCoordinates);
+        } else if (pathCoordinates.length > 0) {
+          polyline = L.polyline(pathCoordinates, {
+            color: '#ff6600',
+            weight: 4,
+            opacity: 0.95
+          }).addTo(map);
+        }
+
+        if (pathCoordinates.length > 0) {
+          const last = pathCoordinates[pathCoordinates.length - 1];
+          map.setView(last, 14);
+          if (!markersMap[sid]) {
+            markersMap[sid] = L.marker(last, { icon: createVehicleIcon(sid, 'Moving') }).addTo(map);
+          } else {
+            markersMap[sid].setLatLng(last);
+          }
+        }
       } catch (err) {
         console.error(err);
       }
     }
 
-    async function createSession() {
-      const label = document.getElementById('targetLabel').value.trim() || 'Target Device';
-      const res = await fetch('/api/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label })
+    // Update Counts on Dashboard KPI & Donut Chart
+    function updateDashboardCounts(sessions) {
+      const total = sessions ? sessions.length : (Object.keys(markersMap).length || 1);
+      const moving = Math.max(1, Math.floor(total * 0.6));
+      const idle = Math.max(0, total - moving);
+
+      document.getElementById('kpiMovingCount').innerText = moving;
+      document.getElementById('kpiIdleCount').innerText = idle;
+      document.getElementById('kpiTotalCount').innerText = total;
+      document.getElementById('donutTotalCount').innerText = total;
+
+      document.getElementById('legendMoving').innerText = `${moving} (${Math.round((moving/total)*100)}%)`;
+      document.getElementById('legendIdle').innerText = `${idle} (${Math.round((idle/total)*100)}%)`;
+    }
+
+    // Create New Session
+    async function createNewSession() {
+      const name = document.getElementById('newTargetName').value.trim() || 'Live Vehicle';
+      try {
+        const res = await fetch('/api/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ label: name })
+        });
+        const data = await res.json();
+        const shareUrl = `${window.location.origin}/track/${data.sessionId}`;
+
+        document.getElementById('modalLinkText').innerText = shareUrl;
+        document.getElementById('modalLinkBox').style.display = 'block';
+
+        selectSession(data.sessionId, data.label);
+        loadSessions();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function copyModalLink() {
+      const text = document.getElementById('modalLinkText').innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Live tracking link copied to clipboard!');
       });
-      const data = await res.json();
-      document.getElementById('targetLabel').value = '';
-      showShareBox(data.session_id);
-      await loadSessions();
-      selectSession(data.session_id, data.label);
     }
 
-    function showShareBox(id) {
-      const shareUrl = `${window.location.origin}/track/${id}`;
-      document.getElementById('shareUrlText').innerText = shareUrl;
-      document.getElementById('linkShareBox').style.display = 'block';
-    }
-
-    function copyShareLink() {
-      const url = document.getElementById('shareUrlText').innerText;
-      navigator.clipboard.writeText(url).then(() => {
-        alert('Target link copied to clipboard!');
-      });
-    }
-
-    async function selectSession(sessionId, label) {
-      activeSessionId = sessionId;
-      document.getElementById('telemetryCard').style.display = 'block';
-      document.getElementById('telemetryTitle').innerText = `${label} (${sessionId})`;
-      showShareBox(sessionId);
-      await loadSessions();
-
-      if (ws) {
-        ws.close();
-      }
-
-      const res = await fetch(`/api/sessions/${sessionId}`);
-      const data = await res.json();
-      sessionPoints = data.points || [];
-
-      renderTrail();
-      if (sessionPoints.length > 0) {
-        const last = sessionPoints[sessionPoints.length - 1];
-        updateMarker(last);
-        fitTarget();
-      }
-
-      connectWs(sessionId);
-    }
-
-    function renderTrail() {
-      const latlngs = sessionPoints.map(p => [p.latitude, p.longitude]);
-      if (routePolyline) {
-        map.removeLayer(routePolyline);
-      }
-      routePolyline = L.polyline(latlngs, { color: '#0ea5e9', weight: 4, opacity: 0.8 }).addTo(map);
-      document.getElementById('statPoints').innerText = sessionPoints.length;
-    }
-
-    function updateMarker(data) {
-      const lat = data.latitude;
-      const lng = data.longitude;
-      const acc = data.accuracy || 0;
-
-      document.getElementById('statLat').innerText = lat.toFixed(5);
-      document.getElementById('statLng').innerText = lng.toFixed(5);
-      document.getElementById('statSpeed').innerText = `${data.speed || 0} km/h`;
-      document.getElementById('statAccuracy').innerText = `±${Math.round(acc)}m`;
-      document.getElementById('statBattery').innerText = data.battery ? `${data.battery}%` : 'N/A';
-      document.getElementById('statPoints').innerText = sessionPoints.length;
-
-      if (!targetMarker) {
-        targetMarker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
-      } else {
-        targetMarker.setLatLng([lat, lng]);
-      }
-
-      if (!accuracyCircle) {
-        accuracyCircle = L.circle([lat, lng], { radius: acc, color: '#0ea5e9', fillColor: '#0ea5e9', fillOpacity: 0.15 }).addTo(map);
-      } else {
-        accuracyCircle.setLatLng([lat, lng]);
-        accuracyCircle.setRadius(acc);
-      }
-    }
-
-    function fitTarget() {
-      if (targetMarker) {
-        map.setView(targetMarker.getLatLng(), 16);
-      }
-    }
-
-    function connectWs(sessionId) {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      ws = new WebSocket(`${protocol}//${window.location.host}/ws/${sessionId}`);
-
-      ws.onmessage = (event) => {
-        const payload = JSON.parse(event.data);
-        if (payload.type === 'location_update') {
-          sessionPoints.push(payload);
-          renderTrail();
-          updateMarker(payload);
-        }
-      };
-
-      ws.onclose = () => {
-        setTimeout(() => {
-          if (activeSessionId === sessionId) connectWs(sessionId);
-        }, 3000);
-      };
-    }
-
-    async function deleteActiveSession() {
-      if (!activeSessionId) return;
-      if (!confirm('Delete this tracking session and all recorded path points?')) return;
-      await fetch(`/api/sessions/${activeSessionId}`, { method: 'DELETE' });
-      if (targetMarker) { map.removeLayer(targetMarker); targetMarker = null; }
-      if (accuracyCircle) { map.removeLayer(accuracyCircle); accuracyCircle = null; }
-      if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; }
-      document.getElementById('telemetryCard').style.display = 'none';
-      document.getElementById('linkShareBox').style.display = 'none';
-      activeSessionId = null;
+    function openTargetModal() {
+      document.getElementById('targetModal').style.display = 'flex';
       loadSessions();
     }
 
-    loadSessions();
-    setInterval(loadSessions, 10000);
+    function closeTargetModal() {
+      document.getElementById('targetModal').style.display = 'none';
+    }
+
+    function fitLiveTarget() {
+      if (pathCoordinates.length > 0) {
+        map.setView(pathCoordinates[pathCoordinates.length - 1], 15);
+      }
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    // Boot
+    window.addEventListener('DOMContentLoaded', () => {
+      initSocket();
+      loadSessions();
+      setInterval(loadSessions, 8000);
+    });
   </script>
 </body>
 </html>
-
