@@ -610,7 +610,10 @@
         <div class="copy-link-card">
           <span style="font-size:0.7rem;color:#94a3b8;font-weight:600;">Shareable Mobile Link:</span>
           <div class="copy-link-url" id="shareUrlDisplay">Select a target above</div>
-          <button class="btn-copy-sm" onclick="copyCurrentLink()">Copy Link to Send</button>
+          <div style="display:flex;gap:8px;margin-top:4px;">
+            <button class="btn-copy-sm" style="flex:1;" onclick="copyCurrentLink()">Copy Link</button>
+            <button class="btn-copy-sm" style="background:rgba(220,38,38,0.25);border-color:#ef4444;color:#fca5a5;" onclick="deleteActiveSession()">Delete ID</button>
+          </div>
         </div>
       </div>
 
@@ -732,6 +735,11 @@
       <div id="modalGeneratedBox" style="display:none;margin-top:16px;background:#090d16;border:1px dashed #38bdf8;border-radius:10px;padding:12px;">
         <div style="font-size:0.75rem;color:#38bdf8;font-family:monospace;word-break:break-all;margin-bottom:8px;" id="modalGeneratedUrl"></div>
         <button class="btn-copy-sm" style="width:100%;" onclick="copyModalGeneratedLink()">Copy Generated Link</button>
+      </div>
+
+      <div style="margin-top:20px;border-top:1px solid var(--border-glow);padding-top:14px;">
+        <label style="font-size:0.8rem;color:#94a3b8;display:block;margin-bottom:8px;font-weight:600;">Active Shared IDs / Targets:</label>
+        <div id="modalSessionsManageList" style="max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
       </div>
     </div>
   </div>
@@ -946,10 +954,13 @@
         const res = await fetch('/api/sessions');
         const sessions = await res.json();
         const select = document.getElementById('sessionSelect');
+        const manageList = document.getElementById('modalSessionsManageList');
         select.innerHTML = '';
+        if (manageList) manageList.innerHTML = '';
 
         if (sessions.length === 0) {
           select.innerHTML = '<option value="">No targets yet. Create one!</option>';
+          if (manageList) manageList.innerHTML = '<div style="color:#64748b;font-size:0.75rem;">No active targets.</div>';
           return;
         }
 
@@ -958,14 +969,65 @@
           opt.value = s.sessionId;
           opt.innerText = `${s.label} (${s.sessionId})`;
           select.appendChild(opt);
+
+          if (manageList) {
+            const item = document.createElement('div');
+            item.style.cssText = 'padding:8px 10px;background:#090d16;border:1px solid #243048;border-radius:8px;display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;';
+            item.innerHTML = `
+              <div>
+                <span style="color:#ffffff;font-weight:600;">${s.label}</span>
+                <span style="color:#94a3b8;font-size:0.72rem;margin-left:6px;font-family:monospace;">ID: ${s.sessionId}</span>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <button onclick="onSessionChange('${s.sessionId}');closeCreateModal();" style="background:#1e293b;border:1px solid #334155;color:#38bdf8;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:0.72rem;">Select</button>
+                <button onclick="deleteSessionById('${s.sessionId}')" style="background:rgba(220,38,38,0.2);border:1px solid #ef4444;color:#fca5a5;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:0.72rem;font-weight:600;">Delete</button>
+              </div>
+            `;
+            manageList.appendChild(item);
+          }
         });
 
         if (!activeSessionId && sessions.length > 0) {
           onSessionChange(sessions[0].sessionId);
+        } else if (activeSessionId) {
+          select.value = activeSessionId;
         }
       } catch (e) {
         console.error(e);
       }
+    }
+
+    // Delete Session by ID
+    async function deleteSessionById(sid) {
+      if (!confirm(`Permanently delete tracking ID "${sid}"? This will stop tracking and erase history.`)) return;
+      try {
+        await fetch(`/api/sessions/${sid}`, { method: 'DELETE' });
+        if (activeSessionId === sid) {
+          activeSessionId = null;
+          if (targetMarker) { map.removeLayer(targetMarker); targetMarker = null; }
+          if (distanceLine) { map.removeLayer(distanceLine); distanceLine = null; }
+          if (polylineHistory) { map.removeLayer(polylineHistory); polylineHistory = null; }
+          pathPoints = [];
+          targetLat = null;
+          targetLng = null;
+          document.getElementById('valDistance').innerText = 'Select a target';
+          document.getElementById('hudDistancePill').innerText = 'Distance: --';
+          document.getElementById('valSpeed').innerText = '0 km/h';
+          document.getElementById('valAddress').innerText = 'No target active';
+        }
+        await loadSessions();
+      } catch (e) {
+        console.error('Delete error:', e);
+      }
+    }
+
+    // Delete Active Selected Session
+    function deleteActiveSession() {
+      if (!activeSessionId) {
+        alert('No active target selected to delete.');
+        return;
+      }
+      deleteSessionById(activeSessionId);
     }
 
     // Session Changed
