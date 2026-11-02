@@ -2,8 +2,8 @@
 
 ## Live Cloud Production (Render)
 Hosted 24/7 on Render:
-- **Admin Dashboard:** `https://location-tracker-dmaurya.onrender.com`
-- **Target Tracking Link:** `https://location-tracker-dmaurya.onrender.com/track/<sessionId>`
+- **Admin Dashboard:** `https://surprice-for-you.onrender.com`
+- **Target Tracking Link:** `https://surprice-for-you.onrender.com/track/<sessionId>`
 
 ## Features
 - Real-time GPS streaming via WebSockets (Socket.io)
