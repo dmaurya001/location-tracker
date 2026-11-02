@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Location Tracker - Admin Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      background: #0f172a;
+      color: #f8fafc;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #sidebar {
+      width: 380px;
+      background: #1e293b;
+      border-right: 1px solid #334155;
+      display: flex;
+      flex-direction: column;
+      z-index: 1000;
+    }
+    .header {
+      padding: 20px;
+      border-bottom: 1px solid #334155;
+      background: #0f172a;
+    }
+    .header h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #38bdf8;
+      letter-spacing: -0.02em;
+    }
+    .header p {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+    .create-box {
+      padding: 16px 20px;
+      border-bottom: 1px solid #334155;
+      background: #1e293b;
+    }
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+    .input-row input {
+      flex: 1;
+      padding: 10px 12px;
+      background: #0f172a;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.85rem;
+      outline: none;
+    }
+    .btn-primary {
+      padding: 10px 14px;
+      background: #0284c7;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-primary:hover {
+      background: #0369a1;
+    }
+    .link-share-box {
+      margin-top: 12px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: none;
+    }
+    .link-text {
+      font-size: 0.75rem;
+      color: #38bdf8;
+      word-break: break-all;
+      margin-bottom: 6px;
+      font-family: monospace;
+    }
+    .btn-copy {
+      padding: 4px 8px;
+      background: #334155;
+      color: #cbd5e1;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .sessions-list-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    .section-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      margin-bottom: 12px;
+      font-weight: 700;
+    }
+    .session-item {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .session-item:hover, .session-item.active {
+      border-color: #38bdf8;
+      background: #172554;
+    }
+    .session-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .session-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #f1f5f9;
+    }
+    .session-id {
+      font-size: 0.75rem;
+      background: #334155;
+      color: #94a3b8;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    .session-meta {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+    .telemetry-card {
+      background: #0f172a;
+      border-top: 1px solid #334155;
+      padding: 16px 20px;
+    }
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .stat-cell {
+      background: #1e293b;
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .stat-label {
+      font-size: 0.7rem;
+      color: #94a3b8;
+      display: block;
+    }
+    .stat-val {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #f8fafc;
+      font-family: monospace;
+    }
+    .btn-action-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .btn-secondary {
+      flex: 1;
+      padding: 8px;
+      background: #334155;
+      color: #f1f5f9;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .btn-secondary:hover {
+      background: #475569;
+    }
+    #map {
+      flex: 1;
+      height: 100%;
+    }
+    .pulse-marker {
+      width: 16px;
+      height: 16px;
+      background: #0ea5e9;
+      border-radius: 50%;
+      border: 3px solid #ffffff;
+      box-shadow: 0 0 12px #0ea5e9;
+    }
+    .leaflet-tile-pane {
+      filter: invert(100%) hue-rotate(180deg) brightness(90%) contrast(90%);
+    }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <div class="header">
+      <h1>HERMES GEO TRACKER</h1>
+      <p>Real-Time WebSocket Web-Link Engine</p>
+    </div>
+
+    <div class="create-box">
+      <div class="input-row">
+        <input type="text" id="targetLabel" placeholder="Target Label (e.g. Driver 1)" />
+        <button class="btn-primary" onclick="createSession()">New Link</button>
+      </div>
+      <div class="link-share-box" id="linkShareBox">
+        <div class="link-text" id="shareUrlText"></div>
+        <button class="btn-copy" onclick="copyShareLink()">Copy Target Link</button>
+      </div>
+    </div>
+
+    <div class="sessions-list-container">
+      <div class="section-title">Active Targets</div>
+      <div id="sessionsList">Loading targets...</div>
+    </div>
+
+    <div class="telemetry-card" id="telemetryCard" style="display:none;">
+      <div class="section-title" id="telemetryTitle">Target Telemetry</div>
+      <div class="telemetry-grid">
+        <div class="stat-cell">
+          <span class="stat-label">Latitude</span>
+          <span class="stat-val" id="statLat">--</span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-label">Longitude</span>
+          <span class="stat-val" id="statLng">--</span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-label">Speed</span>
+          <span class="stat-val" id="statSpeed">-- km/h</span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-label">Accuracy</span>
+          <span class="stat-val" id="statAccuracy">--</span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-label">Battery</span>
+          <span class="stat-val" id="statBattery">--</span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-label">Total Points</span>
+          <span class="stat-val" id="statPoints">0</span>
+        </div>
+      </div>
+      <div class="btn-action-row">
+        <button class="btn-secondary" onclick="fitTarget()">Center Map</button>
+        <button class="btn-secondary" style="background:#dc2626;" onclick="deleteActiveSession()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <script>
+    const map = L.map('map').setView([20.5937, 78.9629], 5);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(map);
+
+    let activeSessionId = null;
+    let targetMarker = null;
+    let accuracyCircle = null;
+    let routePolyline = null;
+    let ws = null;
+    let sessionPoints = [];
+
+    const customIcon = L.divIcon({
+      className: 'pulse-icon-container',
+      html: '<div class="pulse-marker"></div>',
+      iconSize: [16, 16],
+      iconAnchor: [8, 8]
+    });
+
+    async function loadSessions() {
+      try {
+        const res = await fetch('/api/sessions');
+        const data = await res.json();
+        const listEl = document.getElementById('sessionsList');
+        if (data.length === 0) {
+          listEl.innerHTML = '<p style="color:#64748b;font-size:0.8rem;">No tracking sessions yet. Click "New Link" above.</p>';
+          return;
+        }
+        listEl.innerHTML = '';
+        data.forEach(s => {
+          const div = document.createElement('div');
+          div.className = `session-item ${activeSessionId === s.session_id ? 'active' : ''}`;
+          div.onclick = () => selectSession(s.session_id, s.label);
+          div.innerHTML = `
+            <div class="session-title-row">
+              <span class="session-name">${s.label}</span>
+              <span class="session-id">${s.session_id}</span>
+            </div>
+            <div class="session-meta">Pings: ${s.point_count} | ${s.last_seen ? new Date(s.last_seen * 1000).toLocaleTimeString() : 'Never'}</div>
+          `;
+          listEl.appendChild(div);
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function createSession() {
+      const label = document.getElementById('targetLabel').value.trim() || 'Target Device';
+      const res = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label })
+      });
+      const data = await res.json();
+      document.getElementById('targetLabel').value = '';
+      showShareBox(data.session_id);
+      await loadSessions();
+      selectSession(data.session_id, data.label);
+    }
+
+    function showShareBox(id) {
+      const shareUrl = `${window.location.origin}/track/${id}`;
+      document.getElementById('shareUrlText').innerText = shareUrl;
+      document.getElementById('linkShareBox').style.display = 'block';
+    }
+
+    function copyShareLink() {
+      const url = document.getElementById('shareUrlText').innerText;
+      navigator.clipboard.writeText(url).then(() => {
+        alert('Target link copied to clipboard!');
+      });
+    }
+
+    async function selectSession(sessionId, label) {
+      activeSessionId = sessionId;
+      document.getElementById('telemetryCard').style.display = 'block';
+      document.getElementById('telemetryTitle').innerText = `${label} (${sessionId})`;
+      showShareBox(sessionId);
+      await loadSessions();
+
+      if (ws) {
+        ws.close();
+      }
+
+      const res = await fetch(`/api/sessions/${sessionId}`);
+      const data = await res.json();
+      sessionPoints = data.points || [];
+
+      renderTrail();
+      if (sessionPoints.length > 0) {
+        const last = sessionPoints[sessionPoints.length - 1];
+        updateMarker(last);
+        fitTarget();
+      }
+
+      connectWs(sessionId);
+    }
+
+    function renderTrail() {
+      const latlngs = sessionPoints.map(p => [p.latitude, p.longitude]);
+      if (routePolyline) {
+        map.removeLayer(routePolyline);
+      }
+      routePolyline = L.polyline(latlngs, { color: '#0ea5e9', weight: 4, opacity: 0.8 }).addTo(map);
+      document.getElementById('statPoints').innerText = sessionPoints.length;
+    }
+
+    function updateMarker(data) {
+      const lat = data.latitude;
+      const lng = data.longitude;
+      const acc = data.accuracy || 0;
+
+      document.getElementById('statLat').innerText = lat.toFixed(5);
+      document.getElementById('statLng').innerText = lng.toFixed(5);
+      document.getElementById('statSpeed').innerText = `${data.speed || 0} km/h`;
+      document.getElementById('statAccuracy').innerText = `±${Math.round(acc)}m`;
+      document.getElementById('statBattery').innerText = data.battery ? `${data.battery}%` : 'N/A';
+      document.getElementById('statPoints').innerText = sessionPoints.length;
+
+      if (!targetMarker) {
+        targetMarker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
+      } else {
+        targetMarker.setLatLng([lat, lng]);
+      }
+
+      if (!accuracyCircle) {
+        accuracyCircle = L.circle([lat, lng], { radius: acc, color: '#0ea5e9', fillColor: '#0ea5e9', fillOpacity: 0.15 }).addTo(map);
+      } else {
+        accuracyCircle.setLatLng([lat, lng]);
+        accuracyCircle.setRadius(acc);
+      }
+    }
+
+    function fitTarget() {
+      if (targetMarker) {
+        map.setView(targetMarker.getLatLng(), 16);
+      }
+    }
+
+    function connectWs(sessionId) {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${window.location.host}/ws/${sessionId}`);
+
+      ws.onmessage = (event) => {
+        const payload = JSON.parse(event.data);
+        if (payload.type === 'location_update') {
+          sessionPoints.push(payload);
+          renderTrail();
+          updateMarker(payload);
+        }
+      };
+
+      ws.onclose = () => {
+        setTimeout(() => {
+          if (activeSessionId === sessionId) connectWs(sessionId);
+        }, 3000);
+      };
+    }
+
+    async function deleteActiveSession() {
+      if (!activeSessionId) return;
+      if (!confirm('Delete this tracking session and all recorded path points?')) return;
+      await fetch(`/api/sessions/${activeSessionId}`, { method: 'DELETE' });
+      if (targetMarker) { map.removeLayer(targetMarker); targetMarker = null; }
+      if (accuracyCircle) { map.removeLayer(accuracyCircle); accuracyCircle = null; }
+      if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; }
+      document.getElementById('telemetryCard').style.display = 'none';
+      document.getElementById('linkShareBox').style.display = 'none';
+      activeSessionId = null;
+      loadSessions();
+    }
+
+    loadSessions();
+    setInterval(loadSessions, 10000);
+  </script>
+</body>
+</html>
+

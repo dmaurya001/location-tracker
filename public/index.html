@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>React + Node.js Realtime Location Tracker</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- React, ReactDOM, Babel for in-browser JSX, Leaflet, and Socket.io -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      background: #0f172a;
+      color: #f8fafc;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #root {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+    }
+    .sidebar {
+      width: 380px;
+      background: #1e293b;
+      border-right: 1px solid #334155;
+      display: flex;
+      flex-direction: column;
+      z-index: 1000;
+    }
+    .header {
+      padding: 20px;
+      border-bottom: 1px solid #334155;
+      background: #0f172a;
+    }
+    .header-badge {
+      display: inline-block;
+      background: #0284c7;
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .header h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #38bdf8;
+    }
+    .header p {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+    .create-box {
+      padding: 16px 20px;
+      border-bottom: 1px solid #334155;
+      background: #1e293b;
+    }
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+    .input-row input {
+      flex: 1;
+      padding: 10px 12px;
+      background: #0f172a;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.85rem;
+      outline: none;
+    }
+    .btn-primary {
+      padding: 10px 14px;
+      background: #0284c7;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-primary:hover {
+      background: #0369a1;
+    }
+    .link-share-box {
+      margin-top: 12px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+    .link-text {
+      font-size: 0.75rem;
+      color: #38bdf8;
+      word-break: break-all;
+      margin-bottom: 6px;
+      font-family: monospace;
+    }
+    .btn-copy {
+      padding: 4px 8px;
+      background: #334155;
+      color: #cbd5e1;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .sessions-list-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    .section-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      margin-bottom: 12px;
+      font-weight: 700;
+    }
+    .session-item {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .session-item:hover, .session-item.active {
+      border-color: #38bdf8;
+      background: #172554;
+    }
+    .session-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .session-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #f1f5f9;
+    }
+    .session-id {
+      font-size: 0.75rem;
+      background: #334155;
+      color: #94a3b8;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    .session-meta {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+    .telemetry-card {
+      background: #0f172a;
+      border-top: 1px solid #334155;
+      padding: 16px 20px;
+    }
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .stat-cell {
+      background: #1e293b;
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .stat-label {
+      font-size: 0.7rem;
+      color: #94a3b8;
+      display: block;
+    }
+    .stat-val {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #f8fafc;
+      font-family: monospace;
+    }
+    .btn-action-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .btn-secondary {
+      flex: 1;
+      padding: 8px;
+      background: #334155;
+      color: #f1f5f9;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .map-container {
+      flex: 1;
+      height: 100%;
+    }
+    .pulse-marker {
+      width: 16px;
+      height: 16px;
+      background: #0ea5e9;
+      border-radius: 50%;
+      border: 3px solid #ffffff;
+      box-shadow: 0 0 12px #0ea5e9;
+    }
+    .leaflet-tile-pane {
+      filter: invert(100%) hue-rotate(180deg) brightness(90%) contrast(90%);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    function TrackerApp() {
+      const [sessions, setSessions] = useState([]);
+      const [activeSession, setActiveSession] = useState(null);
+      const [points, setPoints] = useState([]);
+      const [latestTelemetry, setLatestTelemetry] = useState(null);
+      const [targetLabel, setTargetLabel] = useState('');
+      const [customDomain, setCustomDomain] = useState('');
+      const [shareUrl, setShareUrl] = useState('');
+
+      const mapRef = useRef(null);
+      const mapInstanceRef = useRef(null);
+      const markerRef = useRef(null);
+      const circleRef = useRef(null);
+      const polylineRef = useRef(null);
+      const socketRef = useRef(null);
+
+      // Initialize Leaflet Map
+      useEffect(() => {
+        if (!mapInstanceRef.current && mapRef.current) {
+          const map = L.map(mapRef.current).setView([20.5937, 78.9629], 5);
+          L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 19
+          }).addTo(map);
+          mapInstanceRef.current = map;
+        }
+
+        // Initialize Socket.io
+        const socket = io();
+        socketRef.current = socket;
+
+        fetchSessions();
+        const interval = setInterval(fetchSessions, 10000);
+
+        return () => {
+          clearInterval(interval);
+          socket.disconnect();
+        };
+      }, []);
+
+      // Subscribe to active session updates via Socket.io
+      useEffect(() => {
+        if (!socketRef.current || !activeSession) return;
+
+        socketRef.current.emit('join_session', activeSession.sessionId);
+
+        const handleLocationUpdate = (payload) => {
+          if (payload.sessionId === activeSession.sessionId) {
+            setPoints(prev => [...prev, payload]);
+            setLatestTelemetry(payload);
+            updateMapLayer(payload);
+          }
+        };
+
+        socketRef.current.on('location_update', handleLocationUpdate);
+
+        return () => {
+          socketRef.current.off('location_update', handleLocationUpdate);
+        };
+      }, [activeSession]);
+
+      const fetchSessions = async () => {
+        try {
+          const res = await fetch('/api/sessions');
+          const data = await res.json();
+          setSessions(data);
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      const createSession = async () => {
+        const label = targetLabel.trim() || 'Target Device';
+        const res = await fetch('/api/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ label })
+        });
+        const data = await res.json();
+        setTargetLabel('');
+        await fetchSessions();
+        selectSession(data);
+      };
+
+      const getShareUrl = (sessionId, customHost) => {
+        const base = (customHost || customDomain).trim() || window.location.origin;
+        return `${base.replace(/\/$/, '')}/track/${sessionId}`;
+      };
+
+      const selectSession = async (session) => {
+        setActiveSession(session);
+        setShareUrl(getShareUrl(session.sessionId));
+
+        try {
+          const res = await fetch(`/api/sessions/${session.sessionId}`);
+          const data = await res.json();
+          const pts = data.points || [];
+          setPoints(pts);
+
+          if (pts.length > 0) {
+            const last = pts[pts.length - 1];
+            setLatestTelemetry(last);
+            updateMapLayer(last, pts);
+            centerMap(last.latitude, last.longitude);
+          } else {
+            setLatestTelemetry(null);
+            clearMapLayers();
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      const updateMapLayer = (latest, allPoints) => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+
+        const lat = latest.latitude;
+        const lng = latest.longitude;
+        const acc = latest.accuracy || 0;
+
+        const customIcon = L.divIcon({
+          className: 'pulse-icon-container',
+          html: '<div class="pulse-marker"></div>',
+          iconSize: [16, 16],
+          iconAnchor: [8, 8]
+        });
+
+        if (!markerRef.current) {
+          markerRef.current = L.marker([lat, lng], { icon: customIcon }).addTo(map);
+        } else {
+          markerRef.current.setLatLng([lat, lng]);
+        }
+
+        if (!circleRef.current) {
+          circleRef.current = L.circle([lat, lng], {
+            radius: acc,
+            color: '#0ea5e9',
+            fillColor: '#0ea5e9',
+            fillOpacity: 0.15
+          }).addTo(map);
+        } else {
+          circleRef.current.setLatLng([lat, lng]);
+          circleRef.current.setRadius(acc);
+        }
+
+        const currentPoints = allPoints || [...points, latest];
+        const latlngs = currentPoints.map(p => [p.latitude, p.longitude]);
+
+        if (polylineRef.current) {
+          map.removeLayer(polylineRef.current);
+        }
+        polylineRef.current = L.polyline(latlngs, { color: '#0ea5e9', weight: 4, opacity: 0.8 }).addTo(map);
+      };
+
+      const centerMap = (lat, lng) => {
+        const map = mapInstanceRef.current;
+        if (map && lat && lng) {
+          map.setView([lat, lng], 16);
+        }
+      };
+
+      const clearMapLayers = () => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+        if (markerRef.current) { map.removeLayer(markerRef.current); markerRef.current = null; }
+        if (circleRef.current) { map.removeLayer(circleRef.current); circleRef.current = null; }
+        if (polylineRef.current) { map.removeLayer(polylineRef.current); polylineRef.current = null; }
+      };
+
+      const deleteSession = async () => {
+        if (!activeSession) return;
+        if (!confirm('Delete this tracking session and all recorded history?')) return;
+        await fetch(`/api/sessions/${activeSession.sessionId}`, { method: 'DELETE' });
+        clearMapLayers();
+        setActiveSession(null);
+        setShareUrl('');
+        setLatestTelemetry(null);
+        fetchSessions();
+      };
+
+      const copyShareLink = () => {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          alert('Tracking link copied to clipboard!');
+        });
+      };
+
+      return (
+        <React.Fragment>
+          <div className="sidebar">
+            <div className="header">
+              <span className="header-badge">React 18 + Node.js</span>
+              <h1>HERMES GEO ENGINE</h1>
+              <p>Socket.io High-Precision Realtime Tracker</p>
+            </div>
+
+            <div className="create-box">
+              <div className="input-row">
+                <input
+                  type="text"
+                  placeholder="Target Label (e.g. Courier 1)"
+                  value={targetLabel}
+                  onChange={(e) => setTargetLabel(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && createSession()}
+                />
+                <button className="btn-primary" onClick={createSession}>New Link</button>
+              </div>
+
+              {shareUrl && (
+                <div className="link-share-box">
+                  <div style={{ marginBottom: '6px' }}>
+                    <input
+                      type="text"
+                      placeholder="Public HTTPS URL (e.g. from tunnel.bat)"
+                      value={customDomain}
+                      onChange={(e) => {
+                        setCustomDomain(e.target.value);
+                        if (activeSession) setShareUrl(getShareUrl(activeSession.sessionId, e.target.value));
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '6px 8px',
+                        background: '#1e293b',
+                        border: '1px solid #475569',
+                        borderRadius: '6px',
+                        color: '#38bdf8',
+                        fontSize: '0.72rem',
+                        outline: 'none',
+                        marginBottom: '6px'
+                      }}
+                    />
+                  </div>
+                  <div className="link-text">{shareUrl}</div>
+                  <button className="btn-copy" onClick={copyShareLink}>Copy Target Link</button>
+                </div>
+              )}
+            </div>
+
+            <div className="sessions-list-container">
+              <div className="section-title">Active Targets ({sessions.length})</div>
+              {sessions.length === 0 ? (
+                <p style={{ color: '#64748b', fontSize: '0.8rem' }}>No active tracking targets. Click "New Link" above.</p>
+              ) : (
+                sessions.map(s => (
+                  <div
+                    key={s.sessionId}
+                    className={`session-item ${activeSession && activeSession.sessionId === s.sessionId ? 'active' : ''}`}
+                    onClick={() => selectSession(s)}
+                  >
+                    <div className="session-title-row">
+                      <span className="session-name">{s.label}</span>
+                      <span className="session-id">{s.sessionId}</span>
+                    </div>
+                    <div className="session-meta">
+                      Pings: {s.pointCount} | {s.lastSeen ? new Date(s.lastSeen).toLocaleTimeString() : 'Never'}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {activeSession && (
+              <div className="telemetry-card">
+                <div className="section-title">Telemetry: {activeSession.label}</div>
+                <div className="telemetry-grid">
+                  <div className="stat-cell">
+                    <span className="stat-label">Latitude</span>
+                    <span className="stat-val">{latestTelemetry ? latestTelemetry.latitude.toFixed(5) : '--'}</span>
+                  </div>
+                  <div className="stat-cell">
+                    <span className="stat-label">Longitude</span>
+                    <span className="stat-val">{latestTelemetry ? latestTelemetry.longitude.toFixed(5) : '--'}</span>
+                  </div>
+                  <div className="stat-cell">
+                    <span className="stat-label">Speed</span>
+                    <span className="stat-val">{latestTelemetry ? `${latestTelemetry.speed} km/h` : '--'}</span>
+                  </div>
+                  <div className="stat-cell">
+                    <span className="stat-label">Accuracy</span>
+                    <span className="stat-val">{latestTelemetry ? `±${Math.round(latestTelemetry.accuracy)}m` : '--'}</span>
+                  </div>
+                  <div className="stat-cell">
+                    <span className="stat-label">Battery</span>
+                    <span className="stat-val">{latestTelemetry && latestTelemetry.battery ? `${latestTelemetry.battery}%` : 'N/A'}</span>
+                  </div>
+                  <div className="stat-cell">
+                    <span className="stat-label">Total Points</span>
+                    <span className="stat-val">{points.length}</span>
+                  </div>
+                </div>
+                <div className="btn-action-row">
+                  <button
+                    className="btn-secondary"
+                    onClick={() => latestTelemetry && centerMap(latestTelemetry.latitude, latestTelemetry.longitude)}
+                  >
+                    Center Map
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    style={{ background: '#dc2626' }}
+                    onClick={deleteSession}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div id="map" className="map-container" ref={mapRef}></div>
+        </React.Fragment>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<TrackerApp />);
+  </script>
+</body>
+</html>
+
