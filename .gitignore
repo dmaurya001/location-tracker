@@ -4,3 +4,4 @@ cloudflared.exe
 tracker.db
 data.json
 *.log
+__pycache__/
