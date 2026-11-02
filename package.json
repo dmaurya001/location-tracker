@@ -1,10 +1,13 @@
 {
-  "name": "location-tracker",
+  "name": "location-tracker-dmaurya",
   "version": "1.0.0",
   "description": "Realtime Location Tracker with Node.js, Express, Socket.io and React",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "cors": "^2.8.5",

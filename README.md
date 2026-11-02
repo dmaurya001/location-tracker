@@ -1,17 +1,20 @@
 # React + Node.js Realtime Location Tracker
 
-## Live Public Server
-Cloudflare Tunnel is currently active.
+## Live Cloud Production (Render)
+Hosted 24/7 on Render:
+- **Admin Dashboard:** `https://location-tracker-dmaurya.onrender.com`
+- **Target Tracking Link:** `https://location-tracker-dmaurya.onrender.com/track/<sessionId>`
 
-**Admin Dashboard:**
-`https://mitchell-arcade-supporters-lectures.trycloudflare.com`
-(or `http://localhost:3000`)
+## Features
+- Real-time GPS streaming via WebSockets (Socket.io)
+- Interactive dark-mode Map (Leaflet.js + OpenStreetMap)
+- Mobile-optimized Delivery Verification UI
+- Screen WakeLock & Battery monitoring
+- 24/7 cloud uptime without local PC dependency
 
-**Target Phone Link (Current Session):**
-`https://mitchell-arcade-supporters-lectures.trycloudflare.com/track/233f9742`
-
-## One-Click Launch
-To start both server and public HTTPS tunnel anytime:
-```powershell
-.\start_live.bat
+## Local Development
+```bash
+.\start.bat
+# or
+node server.js
 ```
