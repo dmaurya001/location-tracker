@@ -262,24 +262,30 @@
       }
     }
 
-    // IP Fallback if satellite GPS is unavailable or taking long
+    // Robust IP Fallback if satellite GPS is blocked or taking long
     async function tryIpFallback() {
-      if (lastCoords) return;
+      if (lastCoords && lastCoords.acc < 500) return;
       try {
-        const res = await fetch('https://ipapi.co/json/');
+        // Trigger server-side IP detection immediately
+        fetch(`/api/ip-fallback/${sessionId}`, { method: 'POST' }).catch(() => {});
+
+        // Direct client-side ipwho.is lookup with zero CORS issues
+        const res = await fetch('https://ipwho.is/');
         const data = await res.json();
-        if (data && data.latitude && data.longitude) {
+        if (data && data.success && data.latitude && data.longitude) {
           sendCoords({
             coords: {
-              latitude: data.latitude,
-              longitude: data.longitude,
+              latitude: parseFloat(data.latitude),
+              longitude: parseFloat(data.longitude),
               accuracy: 2500,
               speed: 0,
               heading: 0
             }
           });
         }
-      } catch(e) {}
+      } catch(e) {
+        console.error('Client IP lookup error:', e);
+      }
     }
 
     function onLocationError(err) {
