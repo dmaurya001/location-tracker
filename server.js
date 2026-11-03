@@ -115,8 +115,10 @@ app.post('/api/location/:id', (req, res) => {
   database.locations[sessionId].push(payload);
   saveDB();
 
-  // Real-time broadcast to all connected admin clients for this session
+  // Real-time broadcast (both room and global for zero-drop redundancy)
   io.to(sessionId).emit('location_update', payload);
+  io.emit('location_update', payload);
+  console.log(`[Location Ingest] Session: ${sessionId} -> Lat: ${payload.latitude}, Lng: ${payload.longitude}`);
 
   res.json({ status: 'ok', timestamp: now });
 });

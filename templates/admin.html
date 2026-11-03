@@ -940,12 +940,37 @@
     // Socket Connection
     function initSocket() {
       if (typeof io !== 'undefined') {
-        socket = io();
+        socket = io({
+          transports: ['websocket', 'polling'],
+          reconnection: true,
+          reconnectionAttempts: 20
+        });
         socket.on('connect', () => {
+          console.log('[Socket] Connected to telemetry stream');
           if (activeSessionId) socket.emit('join_session', activeSessionId);
         });
-        socket.on('location_update', onIncomingLocation);
+        socket.on('location_update', (data) => {
+          if (!activeSessionId || data.sessionId === activeSessionId) {
+            onIncomingLocation(data);
+          }
+        });
       }
+    }
+
+    // Auto-poll active session points every 3 seconds for zero-lag redundancy
+    async function pollActiveLocation() {
+      if (!activeSessionId) return;
+      try {
+        const res = await fetch(`/api/sessions/${activeSessionId}`);
+        const data = await res.json();
+        if (data && data.points && data.points.length > 0) {
+          const latest = data.points[data.points.length - 1];
+          if (!targetLat || targetLat !== latest.latitude || targetLng !== latest.longitude) {
+            pathPoints = data.points.map(p => [p.latitude, p.longitude]);
+            onIncomingLocation(latest);
+          }
+        }
+      } catch (e) {}
     }
 
     // Load Sessions List
@@ -1125,7 +1150,8 @@
       initSocket();
       locateAdmin();
       loadSessions();
-      setInterval(loadSessions, 10000);
+      setInterval(pollActiveLocation, 3000);
+      setInterval(loadSessions, 6000);
     });
   </script>
 </body>
